@@ -5,8 +5,8 @@ class Config():
         config = configparser.ConfigParser()
         config.read(config_path)
 
-        self.STRING_LENGTH = config.getint('configurations','string_length', fallback=200)
-        self.MAX_EMBEDS = config.getint('configurations','max_embeds', fallback=5) # -1 is unlimited
+        self.STRING_LENGTH = config.getint('configuration','string_length', fallback=200)
+        self.MAX_EMBEDS = config.getint('configuration','max_embeds', fallback=5) # -1 is unlimited
         self.USERNAME = config.get('default_repository','username')
         self.REPOSITORY = config.get('default_repository','repository')
 
