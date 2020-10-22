@@ -1,6 +1,7 @@
 import os
 import re
 import datetime
+import queue
 from enum import Enum
 
 from config import Config
@@ -21,6 +22,7 @@ class UrlType(Enum):
 class GithubLinkBot(discord.Client):
     async def on_ready(self):
         self.config = Config("config.ini")
+        self.queued_responses = queue.Queue(self.config.MAX_EMBEDS)
         print(f'{client.user} has connected to Discord!')
 
     async def on_message(self, message):
@@ -30,8 +32,7 @@ class GithubLinkBot(discord.Client):
         if message.author.bot:
             return
 
-        # this should be updated to reduce the number of requests made if it exceeds > MAX_EMBEDS
-        # instead of directly calling, call all into a method that dispatches the calls
+        # TODO: Should we ignore strings that are in code blocks?
         scanner = re.Scanner([
             (r"(?:([^/\s]+/[^/\s]+)#(\d+))", lambda scanner, token: self.username_repo_and_issue_or_pull_number(token)),
             (r"(#(\d+))", lambda scanner, token: self.issue_or_pull_number(token, message.channel)),
@@ -40,9 +41,17 @@ class GithubLinkBot(discord.Client):
             (r"(\s*([A-Fa-f0-9]{40}))", lambda scanner, token: self.commit_sha(token, message.channel)),
             (r".", lambda scanner, token: None),
         ])
+        
+        try:
+            scanner.scan(message.content)
+        except queue.Full:
+            pass
 
-        collated_responses = scanner.scan(message.content)
-        non_empty_responses = list(filter(None, collated_responses[0]))
+        collated_responses = []
+        while not self.queued_responses.empty():
+            collated_responses.append(self.queued_responses.get())
+
+        non_empty_responses = list(filter(None, collated_responses))
 
         embeds = []
         if len(non_empty_responses) > 0:
@@ -134,7 +143,7 @@ class GithubLinkBot(discord.Client):
         
         if title is not None:
             response = { "link_type":link_type, "response":obj_response }
-            return response
+            return self.queued_responses.put(response, block=False)
 
     def username_repo_and_issue_or_pull_number(self, token):
         username,repo,post_id = re.split('/|#',token)
@@ -142,14 +151,14 @@ class GithubLinkBot(discord.Client):
 
         if title is not None:
             response = { "link_type":link_type, "response":obj_response }
-            return response
+            return self.queued_responses.put(response, block=False)
 
     def get_commit(self, username, repo, sha):
         try:
             commit = g.get_repo(f'{username}/{repo}').get_commit(sha=sha)
             if commit is not None:
                 response = { "link_type":UrlType.COMMIT, "response":commit }
-                return response
+                return self.queued_responses.put(response, block=False)
         except Exception as e:
             print(e)
             return
