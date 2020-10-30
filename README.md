@@ -31,19 +31,30 @@ The formatting that the bot responds to tries to follow those of the [GitHub Doc
 
 ### Setup `config.ini`
 
-#### Needed configurations
+#### Required configurations
 
 ```
 [default_repository]
-username = {YOUR_GITHUB_USERNAME}
-repository = {YOUR_GITHUB_REPO}
-
-[configuration]
-string_length = {max length for descriptions, eg. 200}
-max_embeds = {maximum number of embeds to attach, eg. 5}
+username={YOUR_GITHUB_USERNAME}
+repository={YOUR_GITHUB_REPO}
 ```
 
 #### Optional configurations
+
+##### General configuration
+
+Configuration for embeds.
+
+- `string_length` Maximum length for descriptions, eg. 200
+- `max_embeds` Maximum number of embeds to attach, eg. 5
+
+Defaults:
+
+```
+[configuration]
+string_length=200
+max_embeds=5
+```
 
 ##### Per-channel repo overrides
 
