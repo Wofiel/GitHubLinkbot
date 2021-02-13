@@ -11,8 +11,9 @@ from dotenv import load_dotenv
 from github import Github
 
 load_dotenv()
-TOKEN = os.getenv('DISCORD_TOKEN')
-g = Github(os.getenv('GHAT'))
+DISCORD_TOKEN = os.getenv('DISCORD_TOKEN')
+GITHUB_TOKEN = os.getenv('GHAT')
+g = Github(GITHUB_TOKEN)
 
 class UrlType(Enum):
     PULL = 1
@@ -23,7 +24,42 @@ class GithubLinkBot(discord.Client):
     async def on_ready(self):
         self.config = Config("config.ini")
         self.queued_responses = queue.Queue(self.config.MAX_EMBEDS)
+        
+        self.check_channel_permissions()
+        await self.check_webhooks()
+
+        self.responded_messages = {}
         print(f'{client.user} has connected to Discord!')
+
+    def check_channel_permissions(self):
+        # single guild currently
+        guilds = client.guilds
+        current_guild = guilds[0]
+        for channel in set(self.config.CFG_ALLOWED_CHANNELS).intersection(self.config.CFG_BLOCKED_CHANNELS):
+            print(f'WARNING: Channel {channel} appears in both ALLOW and BLOCK lists. BLOCK lists have priority.')
+       
+        if self.config.ALLOW_ALL_CHANNELS:
+            self.config.ALLOWED_CHANNELS = [channel for channel in current_guild.text_channels if channel.name not in self.config.CFG_BLOCKED_CHANNELS]
+        else:
+            self.config.ALLOWED_CHANNELS = [channel for channel in current_guild.text_channels if channel.name in self.config.CFG_ALLOWED_CHANNELS]
+
+    # REQUIRES manage_webhooks PERMISSION!
+    async def check_webhooks(self):
+        self.webhooks = {}
+        try:
+            for channel in self.config.ALLOWED_CHANNELS:
+                hooks = await channel.webhooks()
+                if len(hooks) > 0:
+                    for hook in hooks:
+                        if hook.user == client.user:
+                            self.webhooks[channel] = hook
+                else:
+                    self.webhooks[channel] = await channel.create_webhook(name='GitHubLinkBot', reason="GitHubLinkBot")
+                    print(f'Created new WebHook for channel: {channel}')
+
+        except discord.Forbidden:
+            print(f'ERROR: Bot does not have manage_webhooks permission!')
+
 
     async def on_message(self, message):
         if message.author == client.user:
@@ -32,6 +68,63 @@ class GithubLinkBot(discord.Client):
         if message.author.bot:
             return
 
+        if message.channel not in self.config.ALLOWED_CHANNELS:
+            return
+
+        responses = self.generate_responses_for_triggers(message)
+
+        embeds = []
+        if len(responses) > 0:
+            embeds = self.create_embeds(responses, self.config.MAX_EMBEDS)
+            await self.send_message_with_embeds(embeds, message)
+
+    async def on_message_edit(self, before, after):
+        if before.content == after.content:
+            return
+
+        if before in self.responded_messages.keys():
+            previous_response = self.responded_messages[before]
+
+            responses = self.generate_responses_for_triggers(after)
+            if len(responses) == 0:
+                await previous_response.delete()
+                del self.responded_messages[before]
+                return
+            
+            embeds = []
+            if len(responses) > 0:
+                embeds = self.create_embeds(responses, self.config.MAX_EMBEDS)
+            
+            # for now just fully wipe them
+            if type(previous_response) == discord.webhook.WebhookMessage:
+                # can edit multiple embeds
+                # don't bother to going to regular Message
+                await previous_response.edit(embeds=embeds)
+
+            if type(previous_response) == discord.message.Message:
+                # 1 -> n = delete and make WebhookMessage
+                if len(responses) > 1:
+                    # delete previous Message to post new WebhookMessage
+                    await previous_response.delete()
+                    await self.send_message_with_embeds(embeds, after)
+                if len(responses) == 1:
+                    previous_response.edit(embed=embeds[0])
+
+        else:
+            responses = self.generate_responses_for_triggers(after)
+            embeds = []
+            if len(responses) > 0:
+                embeds = self.create_embeds(responses, self.config.MAX_EMBEDS)
+
+            await self.send_message_with_embeds(embeds, after)
+
+    async def on_message_delete(self, message):
+        if message in self.responded_messages.keys():
+            response = self.responded_messages[message]
+            await response.delete()
+            del self.responded_messages[message]
+
+    def generate_responses_for_triggers(self, message):
         # TODO: Should we ignore strings that are in code blocks?
         scanner = re.Scanner([
             (r"(?:([^/\s]+/[^/\s]+)#(\d+))", lambda scanner, token: self.username_repo_and_issue_or_pull_number(token)),
@@ -52,13 +145,27 @@ class GithubLinkBot(discord.Client):
             collated_responses.append(self.queued_responses.get())
 
         non_empty_responses = list(filter(None, collated_responses))
+        return non_empty_responses
 
-        embeds = []
-        if len(non_empty_responses) > 0:
-            embeds = self.create_embeds(non_empty_responses, self.config.MAX_EMBEDS)
+    async def send_message_with_embeds(self, embeds, message_responded_to):
+        # If we have a single embed, we use message and use reply functionality, if we have multiple we use webhooks
+        # This will complicate some parts like editing, but I like the idea of more completeness.
+        reply = None
+        if len(embeds) == 1:
+            reply = await message_responded_to.channel.send(embed=embeds[0], reference=message_responded_to, mention_author=False)
+        else:
+            # Instead of sending a message like would be sensible, make a WebHook for NO reason (API limitations of Discord)
+            reply = await self.webhooks[message_responded_to.channel].send(embeds=embeds, wait=True)
 
-        for embed in embeds:
-            await message.channel.send(embed=embed)
+        self.responded_messages[message_responded_to] = reply
+
+        self.prune_cached_responses_if_necessary()
+
+    def prune_cached_responses_if_necessary(self):
+        # Python dictionaries are now inserted in order, so now if we are over the limit, we can simply remove the first
+        while len(self.responded_messages.keys()) > self.config.MAX_CACHED_MESSAGES:
+            message_keys_as_list = list(self.responded_messages.keys())
+            del self.responded_messages[message_keys_as_list[0]]
 
     def create_embeds(self, messages, max_embeds):
         embed = []
@@ -181,4 +288,4 @@ class GithubLinkBot(discord.Client):
         return self.config.CHANNEL_OVERRIDES.get(channel.name, (self.config.USERNAME, self.config.REPOSITORY))
 
 client = GithubLinkBot()
-client.run(TOKEN)
+client.run(DISCORD_TOKEN)
