@@ -47,6 +47,10 @@ Configuration for embeds.
 
 - `string_length` Maximum length for descriptions, eg. 200
 - `max_embeds` Maximum number of embeds to attach, eg. 5
+- `allow_all_channels` Whether posting is allowed in all channels, eg. yes or no
+- `allowed_channel_list` Comma-separated list of channels that explicitly allow being posted on eg. general,development
+- `blocked_channel_list` Comma-separated list of channels that explicitly do not allow being posted on. Blocks have higher priority than allows if listed in both. eg. github,netlify
+- `max_cached_messages` Max responses to cache to watch for edits/deletes, eg. 100
 
 Defaults:
 
@@ -54,6 +58,8 @@ Defaults:
 [configuration]
 string_length=200
 max_embeds=5
+allow_all_channels=no
+max_cached_messages=100
 ```
 
 ##### Per-channel repo overrides
