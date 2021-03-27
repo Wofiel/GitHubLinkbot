@@ -26,6 +26,7 @@ class GithubLinkBot(discord.Client):
         self.queued_responses = queue.Queue(self.config.MAX_EMBEDS)
         
         self.check_channel_permissions()
+        self.webhooks_allowed = False
         await self.check_webhooks()
 
         self.responded_messages = {}
@@ -56,10 +57,9 @@ class GithubLinkBot(discord.Client):
                 else:
                     self.webhooks[channel] = await channel.create_webhook(name='GitHubLinkBot', reason="GitHubLinkBot")
                     print(f'Created new WebHook for channel: {channel}')
-
+            self.webhooks_allowed = True
         except discord.Forbidden:
             print(f'ERROR: Bot does not have manage_webhooks permission!')
-
 
     async def on_message(self, message):
         if message.author == client.user:
@@ -151,7 +151,7 @@ class GithubLinkBot(discord.Client):
         # If we have a single embed, we use message and use reply functionality, if we have multiple we use webhooks
         # This will complicate some parts like editing, but I like the idea of more completeness.
         reply = None
-        if len(embeds) == 1:
+        if len(embeds) == 1 or self.webhooks_allowed == False:
             reply = await message_responded_to.channel.send(embed=embeds[0], reference=message_responded_to, mention_author=False)
         else:
             # Instead of sending a message like would be sensible, make a WebHook for NO reason (API limitations of Discord)
