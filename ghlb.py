@@ -103,12 +103,12 @@ class GithubLinkBot(discord.Client):
 
             if type(previous_response) == discord.message.Message:
                 # 1 -> n = delete and make WebhookMessage
-                if len(responses) > 1:
+                if len(responses) > 1 and self.webhooks_allowed == True:
                     # delete previous Message to post new WebhookMessage
                     await previous_response.delete()
                     await self.send_message_with_embeds(embeds, after)
-                if len(responses) == 1:
-                    previous_response.edit(embed=embeds[0])
+                elif len(responses) == 1:
+                    await previous_response.edit(embed=embeds[0])
 
         else:
             responses = self.generate_responses_for_triggers(after)
