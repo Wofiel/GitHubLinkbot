@@ -8,13 +8,14 @@ For linking GitHub Issues, PRs and Commits into Discord.
 
 The formatting that the bot responds to tries to follow those of the [GitHub Docs](https://docs.github.com/en/free-pro-team@latest/github/writing-on-github/autolinked-references-and-urls#issues-and-pull-requests) this includes:
 
-| Link type                         | Format                                   |
-| --------------------------------- |------------------------------------------|
-| Issues/Pull Requests              | #26                                      |
-| Specific repo issue/pull requests | jlord/sheetsee.js#26                     |
-| Commit SHA (40 char)              | a5c3785ed8d6a35868bc169f07e40e889087fd2e |
-| Username@short SHA                | jlord@a5c3785                            |
-| Username/repo@short SHA           | jlord/sheetsee.js@a5c3785                |
+| Link type                              | Format                                   |
+| -------------------------------------- |------------------------------------------|
+| Issues/Pull Requests                   | #26                                      |
+| Specific repo issue/pull requests      | sheetsee.js#26                           |
+| Specific user/repo issue/pull requests | jlord/sheetsee.js#26                     |
+| Commit SHA (40 char)                   | a5c3785ed8d6a35868bc169f07e40e889087fd2e |
+| Username@short SHA                     | jlord@a5c3785                            |
+| Username/repo@short SHA                | jlord/sheetsee.js@a5c3785                |
 
 ## How to setup
 
