@@ -128,6 +128,7 @@ class GithubLinkBot(discord.Client):
         # TODO: Should we ignore strings that are in code blocks?
         scanner = re.Scanner([
             (r"(?:([^/\s]+/[^/\s]+)#(\d+))", lambda scanner, token: self.username_repo_and_issue_or_pull_number(token)),
+            (r"(?:([^/\s]+)#(\d+))", lambda scanner, token: self.repo_and_issue_or_pull_number(token)),
             (r"(#(\d+))", lambda scanner, token: self.issue_or_pull_number(token, message.channel)),
             (r"[A-Za-z0-9]+/[A-Za-z0-9\.\-]+@(\s*([A-Fa-f0-9]{7,40}))", lambda scanner, token: self.username_repo_at_sha(token)),
             (r"[A-Za-z0-9]+@(\s*([A-Fa-f0-9]{7,40}))", lambda scanner, token: self.username_at_sha(token, message.channel)),
@@ -255,6 +256,14 @@ class GithubLinkBot(discord.Client):
     def username_repo_and_issue_or_pull_number(self, token):
         username,repo,post_id = re.split('/|#',token)
         title,link_type,obj_response = self.get_valid_issue_or_pull(username, repo, post_id)
+
+        if title is not None:
+            response = { "link_type":link_type, "response":obj_response }
+            return self.queued_responses.put(response, block=False)
+
+    def repo_and_issue_or_pull_number(self, token):
+        repo,post_id = re.split('/|#',token)
+        title,link_type,obj_response = self.get_valid_issue_or_pull(self.config.USERNAME, repo, post_id)
 
         if title is not None:
             response = { "link_type":link_type, "response":obj_response }
