@@ -55,7 +55,11 @@ class GithubLinkBot(discord.Client):
                         if hook.user == client.user:
                             self.webhooks[channel] = hook
                 else:
-                    self.webhooks[channel] = await channel.create_webhook(name='GitHubLinkBot', reason="GitHubLinkBot")
+                    avatar = await self.user.avatar_url.read()
+                    self.webhooks[channel] = await channel.create_webhook(
+                        name=self.user.display_name,
+                        reason=self.user.display_name,
+                        avatar=avatar)
                     print(f'Created new WebHook for channel: {channel}')
                 self.webhooks_allowed = True
             except discord.Forbidden:
