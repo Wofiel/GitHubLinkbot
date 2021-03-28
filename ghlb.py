@@ -47,8 +47,8 @@ class GithubLinkBot(discord.Client):
     # REQUIRES manage_webhooks PERMISSION!
     async def check_webhooks(self):
         self.webhooks = {}
-        try:
-            for channel in self.config.ALLOWED_CHANNELS:
+        for channel in self.config.ALLOWED_CHANNELS:
+            try:
                 hooks = await channel.webhooks()
                 if len(hooks) > 0:
                     for hook in hooks:
@@ -57,9 +57,9 @@ class GithubLinkBot(discord.Client):
                 else:
                     self.webhooks[channel] = await channel.create_webhook(name='GitHubLinkBot', reason="GitHubLinkBot")
                     print(f'Created new WebHook for channel: {channel}')
-            self.webhooks_allowed = True
-        except discord.Forbidden:
-            print(f'ERROR: Bot does not have manage_webhooks permission!')
+                self.webhooks_allowed = True
+            except discord.Forbidden:
+                print(f'ERROR: Bot does not have manage_webhooks permission in {channel}!')
 
     async def on_message(self, message):
         if message.author == client.user:
